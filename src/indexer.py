@@ -26,11 +26,12 @@ class Indexer:
         with open(stop_words_file, "r") as fp:
             self.stop_words = fp.readlines()
         
+        # print(self.stop_words)
         self.stop_words_dict = {}
         # self.stop_words = [word.strip("'") for word in self.stop_words]
         for word in self.stop_words:
-            self.stop_words_dict[word] = 1
-            
+            self.stop_words_dict[word.split("\n")[0]] = 1
+
         self.stemmer = Stemmer.Stemmer('english')
         self.postings_dictionary = dict()
 
@@ -53,8 +54,7 @@ class Indexer:
                 
                 for word in string:
                     # if word not in self.stop_words:
-                    if self.stop_words_dict.get(word) is None:
-                    
+                    if self.stop_words_dict.get(word) is None:    
                         word = self.stemmer.stemWord(word)
                         if tokens_dict[key].get(word) is not None:
                             tokens_dict[key][word] += 1
@@ -159,6 +159,19 @@ class Indexer:
             last_tag = tag_name
 
         print(page_counter)
+
+        max_len = 0
+        max_token = 0
+        for key in (self.postings_dictionary):
+            for token in sorted(self.postings_dictionary[key]):
+                length_list = len(self.postings_dictionary[key][token])
+                if length_list > max_len:
+                    max_len = length_list
+                    max_token = token
+
+        print(max_token, max_len)
+
+
 if __name__ == "__main__":
 
     wikipedia_dump_path = sys.argv[1]
