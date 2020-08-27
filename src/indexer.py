@@ -1,10 +1,10 @@
-import nltk
+# import nltk
 import xml.etree.ElementTree as etree
 import sys
 import helper_functions
 import re
 import Stemmer
-
+import heapq
 
 '''
 Author: Rahul Sajnani
@@ -26,60 +26,86 @@ class Indexer:
         with open(stop_words_file, "r") as fp:
             self.stop_words = fp.readlines()
         
-        self.stop_words = [word.strip("'") for word in self.stop_words]
+        self.stop_words_dict = {}
+        # self.stop_words = [word.strip("'") for word in self.stop_words]
+        for word in self.stop_words:
+            self.stop_words_dict[word] = 1
+            
         self.stemmer = Stemmer.Stemmer('english')
-        self.postings_list = dict()
+        self.postings_dictionary = dict()
 
-    def process_string(self, string):
+    def process_page(self, page_dict):
         '''
         Removes stop words and tokenizes
         '''
-        # Case folding
-        string = string.lower()
-
-        # Removing special symbols
-        string = re.sub(r'[^A-Za-z0-9]+', r' ', string)
-        
-        string = string.split()
         
         tokens_dict = {}
 
-        for word in string:
-            if word not in self.stop_words:
-                if len(word) > 1:
-                    word = self.stemmer.stemWord(word)
-                    if word in tokens_dict:
-                        tokens_dict[word] += 1
-                    else:
-                        tokens_dict[word] = 1
+        for key in page_dict:    
+            if key != "id":
+                string = page_dict[key]
+                tokens_dict[key] = dict()
+                # Case folding
+                string = string.lower()
+                # Removing special symbols
+                string = re.sub(r'[^A-Za-z0-9]+', r' ', string)
+                string = string.split()
+                
+                for word in string:
+                    # if word not in self.stop_words:
+                    if self.stop_words_dict.get(word) is None:
                     
-        return tokens_dict
+                        word = self.stemmer.stemWord(word)
+                        if tokens_dict[key].get(word) is not None:
+                            tokens_dict[key][word] += 1
+                        else:
+                            tokens_dict[key][word] = 1
+
+        return tokens_dict        
+
+    def process_tokens_dict(self, id, tokens_dict):
+        '''
+        Create posting list from tokens dictionary 
+        '''
+        # postings_dict = {}
+
+        for key in tokens_dict.keys():
+            if self.postings_dictionary.get(key) is None:
+                self.postings_dictionary[key] = {}
+            
+            for token in tokens_dict[key]:
+                
+                if self.postings_dictionary[key].get(token) is None:
+                    self.postings_dictionary[key][token] = []
+                
+                heapq.heappush(self.postings_dictionary[key][token], (id, tokens_dict[key][token]))
+        
+        # return postings_dict
         
 
-    def extract_page_fields(self, page_body):
+    def create_postings_list(self, page_dictionary):
         '''
         Extracts infobox, category, links, and references
         '''
         # infobox and external links required
-        page_references_list = re.findall("<ref>(.*?)</ref>", page_body)
-        # if page_references_list != []:
-        #     print("Reference list:", page_references_list)
 
         
-        page_infobox_list = re.findall("\{\{Infobox (.*?)\}\}", page_body)
-        # if page_infobox_list != []:
-        #     print("Infobox list:", page_infobox_list)
+        page_body = page_dictionary["body"]
+        # pattern = re.compile('<nowiki([> ].*?)(</nowiki>|/>)', re.DOTALL)
+        if page_body is not None:
+            page_references = " ".join(re.findall("<ref>(.*?)</ref>", page_body))
+            page_infobox = " ".join(re.findall("\{\{Infobox (.*?)\}\}", page_body))
+            page_category = " ".join(re.findall("\[\[Category:(.*?)\]\]", page_body))
+            # external_links = pattern.findall(page_body)
+            # print(external_links)
+            page_dictionary["category"] = page_category
+            page_dictionary["infobox"] = page_infobox
+            page_dictionary["references"] = page_references
 
-        # Page categories
-        page_category_list = re.findall("\[\[Category:(.*?)\]\]", page_body)
-        # if page_category_list != []:
-        #     print("Categories list:", page_category_list)
         
-        body_list = self.process_string(page_body)
-        # print(body_list)
-        page_dict = {}
-
-        
+        tokens_dict = self.process_page(page_dictionary)
+        self.process_tokens_dict(page_dictionary["id"], tokens_dict)
+        # print(self.postings_dictionary)  
 
         pass
 
@@ -90,64 +116,49 @@ class Indexer:
         Run indexer
         '''
 
-        # if page is detected
-        page_detected = 0
-
-        # if revision page
-        is_revision = 0
+        page_counter = 0
+        tags_list = []
         
-        i = 0
         for event, element in self.parser:
             
             tag_name = element.tag.split("}")[-1]    
             
             if event == "start":
 
+                tags_list.append(tag_name)
                 if tag_name == "page":
-                    # Start of page
-
-                    is_revision = 0
-                    page_detected = 1                  
+            
+                    page_dict = {}
                     page_title = ""
                     page_id = -1
-                    page_infobox = ""
-                    page_body = ""
-                    page_category = ""
-
-
-                elif tag_name == "revision":
-                    # Revision page
-                    is_revision = 1
-
-                elif page_detected:
-                    
-                    if tag_name == "id" and not is_revision:
-                        # update id if page is detected but is not revision page
-                        page_id = element.text
-                    
-                    elif tag_name == "title":
-                        page_title = element.text
-                    
-                    elif tag_name == "text":
-                        page_body = element.text
+                    page_body = ""                    
                         
             elif event == "end":
                 
-                if tag_name == "page":    
+                tags_list.pop()
+
+                if tag_name == "id" and tags_list[-1] == "page":
+                        # update id if page is detected but is not revision page       
+                        page_id = int(element.text)
+                       
+                elif tag_name == "title":
+                        page_title = element.text
                     
+                elif tag_name == "text":
+                        page_body = element.text
+                    
+                elif tag_name == "page":    
+                    page_counter += 1
                     # print(page_id, " ", page_title)
-                    if page_title is not None:
-                        page_title = page_title.lower()
+                    page_dict = {"id": page_id, "title": page_title, "body": page_body}
+                    self.create_postings_list(page_dict)
 
-                    if page_body is not None:
-                        self.extract_page_fields(page_body.lower())
-                    page_detected = 0
-                    is_revision = 0
+                # Clearing element  
+                element.clear()
 
-            # Clearing element  
-            element.clear()
+            last_tag = tag_name
 
-
+        print(page_counter)
 if __name__ == "__main__":
 
     wikipedia_dump_path = sys.argv[1]
