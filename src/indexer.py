@@ -1,13 +1,12 @@
-try:
-    import xml.etree.cElementTree as etree
-except ImportError:
-    import xml.etree.ElementTree as etree
+# try:
+#     import xml.etree.cElementTree as etree
+# except ImportError:
+import xml.etree.ElementTree as etree
 
 import sys
 import helper_functions
 import re
 import Stemmer
-import heapq
 import os
 
 '''
@@ -107,21 +106,26 @@ class Indexer:
         # pattern = re.compile('<nowiki([> ].*?)(</nowiki>|/>)', re.DOTALL)
         if page_body is not None:
             # removing comments
+            page_body = re.sub(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+',' ',page_body,flags = re.DOTALL)
+            
             page_body = re.sub('<!--.*?-->',' ',page_body,flags = re.DOTALL)
             # removing math equations
             page_body = re.sub('<math([> ].*?)(</math>|/>)',' ',page_body,flags = re.DOTALL)
             # removing files
-            page_body = re.sub('\[\[([fF]ile:|[iI]mage)[^]]*(\]\])',' ',page_body,flags = re.DOTALL)
+            page_body = re.sub(r'\[\[([fF]ile:|[iI]mage)[^]]*(\]\])',' ',page_body,flags = re.DOTALL)
             # obtaining references
             page_references = " ".join(re.findall("<ref>(.*?)</ref>", page_body))
             # obtaining infobox
-            page_infobox = " ".join(re.findall("\{\{Infobox (.*?)\}\}", page_body, flags = re.DOTALL))
+            page_infobox = " ".join(re.findall(r"\{\{Infobox (.*?)\}\}", page_body, flags = re.DOTALL))
             # obtaining categories
-            page_category = " ".join(re.findall("\[\[Category:(.*?)\]\]", page_body))
+            page_category = " ".join(re.findall(r"\[\[Category:(.*?)\]\]", page_body))
             # external_links = pattern.findall(page_body)
             page_body = re.sub('<.*?>',' ',page_body,flags = re.DOTALL)
-            # page_body = re.sub('\{\{([^}{]*)\}\}',' ',page_body,flags = re.DOTALL)
-            page_body = re.sub('\{\{([^}]*)\}\}',' ',page_body,flags = re.DOTALL)
+
+            page_body = re.sub('{{([^}{]*)}}','',page_body,flags = re.DOTALL)
+            page_body = re.sub('{{([^}]*)}}','',page_body,flags = re.DOTALL)
+            # page_body = re.sub(r'\{\{([^}{]*)\}\}',r' ',page_body,flags = re.DOTALL)
+            # page_body = re.sub(r'\{\{([^}]*)\}\}',r' ',page_body,flags = re.DOTALL)
             # # print(external_links)
             page_dictionary["category"] = page_category
             page_dictionary["infobox"] = page_infobox
@@ -146,19 +150,21 @@ class Indexer:
             os.makedirs(self.index_directory)
 
         for key in (self.postings_dictionary):
-            dict_lines[key] = {}
+            # dict_lines[key] = {}
             filename = "index_%s.txt" % str(key)
             fp = open(os.path.join(self.index_directory, filename), "w")
             line = 1
             write_string = ""
             for token in sorted(self.postings_dictionary[key]):
+                if dict_lines.get(token) is None:
+                    dict_lines[token] = {}
                 # get length of posting list
                 length_list = len(self.postings_dictionary[key][token])
                 write_string += str(length_list)
                 for tuple_iter in sorted(self.postings_dictionary[key][token]):
                     # Writing doc id and frequency
                     write_string += " %s %s" % (str(tuple_iter[0]), str(tuple_iter[1]))
-                dict_lines[key][token] = line
+                dict_lines[token][key] = line
                 line += 1
                 write_string += "\n"
 
@@ -172,26 +178,32 @@ class Indexer:
             
             fp.close()
 
-        
-        for key in sorted(dict_lines):
-            filename = "tokens_%s.txt" % str(key)
+        write_string = ""
+        categories = [key for key in sorted(self.postings_dictionary.keys())]
+        for token in sorted(dict_lines):
+            filename = "tokens.txt"
             fp = open(os.path.join(self.index_directory, filename), "w")
             line = 1
-            write_string = ""
-            for token in (dict_lines[key]):
+            write_string += str(token)
+            for key in categories:
                 # get length of posting list
-                line += 1
-                write_string += "%s %s" % (str(token), str(dict_lines[key][token]))
-                write_string += "\n"
+                if dict_lines[token].get(key) is None:
+                    write_string += " -1"
+                else:
+                    write_string += " %s" % (str(dict_lines[token][key]))
+            
+            write_string += "\n"
+            line += 1
 
-                # Write to file if the lines are more than 5000 and clear
-                if line % 10000 == 0:
-                    fp.write(write_string)
-                    write_string = ""
-            if write_string != "":
+            # Write to file if the lines are more than 5000 and clear
+            if line % 10000 == 0:
                 fp.write(write_string)
-                
-            fp.close()
+                write_string = ""
+        
+        if write_string != "":
+            fp.write(write_string)
+
+        fp.close()
         
 
     def run(self):
