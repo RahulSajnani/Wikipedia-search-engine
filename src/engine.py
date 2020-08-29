@@ -72,19 +72,26 @@ class Engine:
             filename = os.path.join(self.index_path, filename)
             
             for token in query_dict[category]:
-                
+                # print(token)
+                found = False
                 # If token in dictionary
                 if (self.tokens_dict.get(token) is not None):
                     # If token is present in the respective category
                     if self.tokens_dict[token][self.categories.index(category)] != "-1": 
                         # Get line :)
                         postings_list_dict = self.decode_line(linecache.getline(filename, int(self.tokens_dict[token][self.categories.index(category)])))
-
+                        found = True
                         if postings_list.get(category) is None:
                             postings_list[category] = {}
                         postings_list[category][token] = postings_list_dict
                         # print(line, category)
+                if not found:
+                    if postings_list.get(category) is None:
+                            postings_list[category] = {}
+                    postings_list[category][token] = {"size": 0, "postings_list": []}
         
+
+        # print(postings_list)
         return postings_list
 
     def merge_postings_list(self, postings_list_1, postings_list_2):
@@ -124,7 +131,7 @@ class Engine:
         # Doc ids of intersection of postings list
         search_doc_id = []
         postings_dict_size_heap = []
-        
+        # print(posting_list_dict)
         for category in posting_list_dict:
             for token in posting_list_dict[category]:
                 postings_dict_size_heap.append((posting_list_dict[category][token]["size"], category, token))
@@ -180,6 +187,7 @@ class Engine:
                 query_dict[self.query_categories[category]].append(self.stemmer.stemWord(token))
                 
         # print(query_dict)
+
         postings_list_dict = self.get_postings_list(query_dict)
         query_result = self.merge_postings_list_dict(postings_list_dict)
         
@@ -195,7 +203,7 @@ class Engine:
             
             query = input("\n$>")
             search_result = self.search(query)
-            print(search_result, "\n", len(search_result))
+            print(search_result, "\n", len(search_result), "Search results")
 
             
 if __name__ == "__main__":
