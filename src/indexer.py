@@ -182,8 +182,8 @@ class Indexer:
                 if dict_lines.get(token) is None:
                     dict_lines[token] = {}
                 # get length of posting list
-                length_list = len(self.postings_dictionary[key][token])
-                write_string += str(length_list)
+                # length_list = len(self.postings_dictionary[key][token])
+                write_string += ""#str(length_list)
                 for tuple_iter in sorted(self.postings_dictionary[key][token]):
                     # Writing doc id and frequency
                     write_string += " %s %s" % (str(tuple_iter[0]), str(tuple_iter[1]))

@@ -50,11 +50,13 @@ class Engine:
         line_dict = {}
         line = line.split()
         
-        line_dict["size"] = int(line[0])
+        # line_dict["size"] = int(line[0])
         line_dict["postings_list"] = []
         
-        for i in range(1, len(line), 2):
+        for i in range(0, len(line), 2):
             line_dict["postings_list"].append((int(line[i]), int(line[i + 1])))
+        
+        line_dict["size"] = len(line_dict["postings_list"])
 
         return line_dict
 
