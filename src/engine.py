@@ -5,11 +5,11 @@ import re
 import Stemmer
 import os
 import linecache
+import heapq
 
 '''
 Author: Rahul Sajnani
 '''
-
 
 class Engine:
     '''
@@ -39,7 +39,6 @@ class Engine:
                 for i in range(1, len(words)):
                     tokens_dict[words[0]].append(words[i])
 
-
         return tokens_dict
 
     def decode_line(self, line):
@@ -50,10 +49,11 @@ class Engine:
         line_dict = {}
         line = line.split()
         
-        line_dict["size"] = line[0]
+        line_dict["size"] = int(line[0])
         line_dict["postings_list"] = []
+        
         for i in range(1, len(line), 2):
-            line_dict["postings_list"].append((line[i], line[i + 1]))
+            line_dict["postings_list"].append((int(line[i]), int(line[i + 1])))
 
         return line_dict
 
@@ -84,12 +84,69 @@ class Engine:
         
         return postings_list
 
-    def merge_postings_list(self, list_posting_list):
+    def merge_postings_list(self, postings_list_1, postings_list_2):
+        '''
+        Merge two posting's list 
+        '''
+
+        ptr_1 = 0
+        ptr_2 = 0
+
+        doc_id_list = []
+
+        while ((ptr_1 < len(postings_list_1)) and (ptr_2 < len(postings_list_2))):
+            
+
+            if postings_list_1[ptr_1][0] > postings_list_2[ptr_2][0]:
+                ptr_2 += 1
+
+            elif postings_list_1[ptr_1][0] < postings_list_2[ptr_2][0]:
+                ptr_1 += 1
+
+            else:
+                # Doc ids are same 
+                avg_doc_count = (postings_list_1[ptr_1][1] + postings_list_2[ptr_2][1])
+                doc_id_list.append((postings_list_1[ptr_1][0], avg_doc_count))
+
+                ptr_1 += 1
+                ptr_2 += 1
+
+        return doc_id_list
+
+    def merge_postings_list_dict(self, posting_list_dict):
         '''
         Merges dictionary of postings list for a query
         '''
 
-        pass
+        # Doc ids of intersection of postings list
+        search_doc_id = []
+        postings_dict_size_heap = []
+        
+        for category in posting_list_dict:
+            for token in posting_list_dict[category]:
+                postings_dict_size_heap.append((posting_list_dict[category][token]["size"], category, token))
+        
+        # If only one query
+        if len(postings_dict_size_heap) == 1:
+
+            return posting_list_dict[category][token]["postings_list"]
+
+
+        heapq.heapify(postings_dict_size_heap)
+        first_merge = True
+
+        while postings_dict_size_heap:
+            
+            if len(postings_dict_size_heap) > 1 and first_merge:
+                posting_tuple_1 = heapq.heappop(postings_dict_size_heap)
+                posting_tuple_2 = heapq.heappop(postings_dict_size_heap)
+                search_doc_id = self.merge_postings_list(posting_list_dict[posting_tuple_1[1]][posting_tuple_1[2]]["postings_list"], posting_list_dict[posting_tuple_2[1]][posting_tuple_2[2]]["postings_list"])
+                first_merge = False
+            else:
+                posting_tuple_1 = heapq.heappop(postings_dict_size_heap)
+                search_doc_id = self.merge_postings_list(search_doc_id, posting_list_dict[posting_tuple_2[1]][posting_tuple_2[2]]["postings_list"])
+        
+        return search_doc_id
 
     def search(self, query):
         '''
@@ -97,10 +154,10 @@ class Engine:
         '''
 
         query_dict = {}
+        query = query.lower()
         query_split = query.split()
         
         for token in query_split:
-            token = token.lower()
             found = False
             for category in self.query_categories:
                 if token.startswith(category):
@@ -111,14 +168,17 @@ class Engine:
             
             # if category is not found
             if not found:
-                for category in self.query_categories:
-                    if query_dict.get(self.query_categories[category]) is None:
-                        query_dict[self.query_categories[category]] = []    
-                    query_dict[self.query_categories[category]].append(self.stemmer.stemWord(token))
+                # for category in self.query_categories:
+
+                # If no category is mentioned then search in page body
+                category = "b:"
+                if query_dict.get(self.query_categories[category]) is None:
+                    query_dict[self.query_categories[category]] = []    
+                query_dict[self.query_categories[category]].append(self.stemmer.stemWord(token))
                 
         # print(query_dict)
         postings_list_dict = self.get_postings_list(query_dict)
-        query_result = self.merge_postings_list(postings_list_dict)
+        query_result = self.merge_postings_list_dict(postings_list_dict)
         
         return query_result
 
@@ -131,8 +191,8 @@ class Engine:
         while True:
             
             query = input("\n$>")
-            query_result = self.search(query)
-            print(query_result, "\n")
+            search_result = self.search(query)
+            print(search_result, "\n")
 
             
 if __name__ == "__main__":
