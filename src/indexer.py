@@ -95,6 +95,22 @@ class Indexer:
         # return postings_dict
         
 
+    def get_external_links(self, body):
+        '''
+        Get external links
+        '''
+
+        external_links = []
+        lines = body.split("==")[-1]
+        lines = body.split("\n")
+
+        for line in lines:
+            if re.match(r"\*(.*)", line):
+                external_links.append(line)
+
+        return " ".join(external_links)
+        
+    #     pass
     def create_postings_list(self, page_dictionary):
         '''
         Extracts infobox, category, links, and references
@@ -113,33 +129,40 @@ class Indexer:
             page_body = re.sub('<math([> ].*?)(</math>|/>)',' ',page_body,flags = re.DOTALL)
             # removing files
             page_body = re.sub(r'\[\[([fF]ile:|[iI]mage)[^]]*(\]\])',' ',page_body,flags = re.DOTALL)
+            page_body = re.sub(r'{{v?cite(.*?)}}', " ", page_body, re.DOTALL | re.I)
+            
+            page_body = re.sub(r'{\|(.*?)\|}', " ", page_body,re.DOTALL)
             # obtaining references
             page_references = " ".join(re.findall("<ref>(.*?)</ref>", page_body))
             # obtaining infobox
-            page_infobox = " ".join(re.findall(r"\{\{Infobox (.*?)\}\}", page_body, flags = re.DOTALL))
+            
+            # page_infobox = " ".join(re.findall("{{Infobox((.|\n)*?)}}", page_body, flags = re.DOTALL)[0])
+
+            page_infobox = " ".join(re.findall(r"\{\{Infobox(.*?)\}\}", page_body, flags = re.DOTALL))
             # obtaining categories
             page_category = " ".join(re.findall(r"\[\[Category:(.*?)\]\]", page_body))
+            # obtaining page external links
+            page_links = self.get_external_links(page_body)
             # external_links = pattern.findall(page_body)
             page_body = re.sub('<.*?>',' ',page_body,flags = re.DOTALL)
 
             page_body = re.sub('{{([^}{]*)}}','',page_body,flags = re.DOTALL)
             page_body = re.sub('{{([^}]*)}}','',page_body,flags = re.DOTALL)
+            
+            # page_body = re.sub(r'\[\[(.*)\]\]',' ',page_body)
             # page_body = re.sub(r'\{\{([^}{]*)\}\}',r' ',page_body,flags = re.DOTALL)
             # page_body = re.sub(r'\{\{([^}]*)\}\}',r' ',page_body,flags = re.DOTALL)
             # # print(external_links)
             page_dictionary["category"] = page_category
             page_dictionary["infobox"] = page_infobox
             page_dictionary["references"] = page_references
-
+            page_dictionary["links"] = page_links
+            page_dictionary["body"] = page_body
             # page_body = re.sub(r"(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)", r" ", page_body)
 
-            page_dictionary["body"] = page_body
 
         tokens_dict = self.process_page(page_dictionary)
         self.process_tokens_dict(page_dictionary["id"], tokens_dict)
-        # print(self.postings_dictionary)  
-
-        pass
 
     def write_index(self):
         '''
@@ -264,17 +287,6 @@ class Indexer:
         print(page_counter)
 
         self.write_index()
-
-        # max_len = 0
-        # max_token = 0
-        # for key in (self.postings_dictionary):
-        #     for token in sorted(self.postings_dictionary[key]):
-        #         length_list = len(self.postings_dictionary[key][token])
-        #         if length_list > max_len:
-        #             max_len = length_list
-        #             max_token = token
-
-        # print(max_token, max_len)
 
 
 if __name__ == "__main__":

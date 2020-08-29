@@ -6,6 +6,7 @@ import Stemmer
 import os
 import linecache
 import heapq
+import readline
 
 '''
 Author: Rahul Sajnani
@@ -21,8 +22,8 @@ class Engine:
         super().__init__()
 
         self.index_path = index_path
-        self.categories = sorted(["references", "body", "infobox", "title", "category"])
-        self.query_categories = {"c:": "category", "b:": "body", "t:": "title", "i:": "infobox", "r:": "references"}
+        self.categories = sorted(["references", "body", "infobox", "title", "category", "links"])
+        self.query_categories = {"c:": "category", "b:": "body", "t:": "title", "i:": "infobox", "r:": "references", "l:": "links"}
         self.tokens_dict = self.get_tokens()
         self.stemmer = Stemmer.Stemmer("english")
         
@@ -192,7 +193,7 @@ class Engine:
             
             query = input("\n$>")
             search_result = self.search(query)
-            print(search_result, "\n")
+            print(search_result, "\n", len(search_result))
 
             
 if __name__ == "__main__":
@@ -200,6 +201,5 @@ if __name__ == "__main__":
     index_path = sys.argv[1]
 
     search_engine = Engine(index_path)
-
     # Run the search engine
     search_engine.run()
