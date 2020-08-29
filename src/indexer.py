@@ -45,7 +45,7 @@ class Indexer:
         '''
         
         tokens_dict = {}
-
+        total_words = 0
         for key in page_dict:    
             if key != "id":
                 string = page_dict[key]
@@ -57,6 +57,7 @@ class Indexer:
                 string = string.split()
                 
                 for word in string:
+                    total_words += 1
                     # if word not in self.stop_words:
                     if key != "title":
                         if self.stop_words_dict.get(word) is None:    
@@ -72,7 +73,7 @@ class Indexer:
                             tokens_dict[key][word] = 1
 
 
-        return tokens_dict        
+        return tokens_dict, total_words        
 
     def process_tokens_dict(self, id, tokens_dict):
         '''
@@ -115,7 +116,7 @@ class Indexer:
         '''
         Extracts infobox, category, links, and references
         '''
-        # infobox and external links required
+        
 
         
         page_body = page_dictionary["body"]
@@ -161,8 +162,10 @@ class Indexer:
             # page_body = re.sub(r"(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)", r" ", page_body)
 
 
-        tokens_dict = self.process_page(page_dictionary)
+        tokens_dict, total_words = self.process_page(page_dictionary)
         self.process_tokens_dict(page_dictionary["id"], tokens_dict)
+
+        return total_words
 
     def write_index(self):
         '''
@@ -227,6 +230,8 @@ class Indexer:
             fp.write(write_string)
 
         fp.close()
+
+        return len(dict_lines)
         
 
     def run(self):
@@ -239,7 +244,7 @@ class Indexer:
         
         first = True
         root = 0
-
+        total_words = 0
         for event, element in self.parser:
             
             tag_name = element.tag.split("}")[-1]    
@@ -277,23 +282,29 @@ class Indexer:
                     page_counter += 1
                     # print(page_id, " ", page_title)
                     page_dict = {"id": page_id, "title": page_title, "body": page_body}
-                    self.create_postings_list(page_dict)
+                    total_words += self.create_postings_list(page_dict)
                     root.clear()
                 # Clearing element  
                 element.clear()
 
             last_tag = tag_name
 
-        print(page_counter)
+        # print(page_counter)
 
-        self.write_index()
+        num_tokens = self.write_index()
+        
+        return total_words, num_tokens
 
 
 if __name__ == "__main__":
 
     wikipedia_dump_path = sys.argv[1]
     index_path = sys.argv[2]
+    stats_path = sys.argv[3]
 
     indexer = Indexer(wikipedia_dump_path, index_directory=index_path)
-    indexer.run()
+    total_words, num_tokens = indexer.run()
+    
+    with open(stats_path, "w") as fp:
+        fp.write(str(total_words) + "\n" + str(num_tokens))
     # print(wikipedia_dump_path)
