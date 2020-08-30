@@ -120,40 +120,34 @@ class Indexer:
 
         
         page_body = page_dictionary["body"]
-        # pattern = re.compile('<nowiki([> ].*?)(</nowiki>|/>)', re.DOTALL)
         if page_body is not None:
-            # removing comments
+
+            # removing http[s]? links
             page_body = re.sub(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+',' ',page_body,flags = re.DOTALL)
-            
+            # removing comments
             page_body = re.sub('<!--.*?-->',' ',page_body,flags = re.DOTALL)
             # removing math equations
             page_body = re.sub('<math([> ].*?)(</math>|/>)',' ',page_body,flags = re.DOTALL)
             # removing files
             page_body = re.sub(r'\[\[([fF]ile:|[iI]mage)[^]]*(\]\])',' ',page_body,flags = re.DOTALL)
+            # removing cite tags
             page_body = re.sub(r'{{v?cite(.*?)}}', " ", page_body, re.DOTALL | re.I)
             
             page_body = re.sub(r'{\|(.*?)\|}', " ", page_body,re.DOTALL)
             # obtaining references
             page_references = " ".join(re.findall("<ref>(.*?)</ref>", page_body))
             # obtaining infobox
-            
-            # page_infobox = " ".join(re.findall("{{Infobox((.|\n)*?)}}", page_body, flags = re.DOTALL)[0])
-
             page_infobox = " ".join(re.findall(r"\{\{Infobox(.*?)\}\}", page_body, flags = re.DOTALL))
             # obtaining categories
             page_category = " ".join(re.findall(r"\[\[Category:(.*?)\]\]", page_body))
             # obtaining page external links
             page_links = self.get_external_links(page_body)
-            # external_links = pattern.findall(page_body)
+            
+            # Cleaning body
             page_body = re.sub('<.*?>',' ',page_body,flags = re.DOTALL)
-
             page_body = re.sub('{{([^}{]*)}}','',page_body,flags = re.DOTALL)
             page_body = re.sub('{{([^}]*)}}','',page_body,flags = re.DOTALL)
             
-            # page_body = re.sub(r'\[\[(.*)\]\]',' ',page_body)
-            # page_body = re.sub(r'\{\{([^}{]*)\}\}',r' ',page_body,flags = re.DOTALL)
-            # page_body = re.sub(r'\{\{([^}]*)\}\}',r' ',page_body,flags = re.DOTALL)
-            # # print(external_links)
             page_dictionary["category"] = page_category
             page_dictionary["infobox"] = page_infobox
             page_dictionary["references"] = page_references
@@ -184,8 +178,6 @@ class Indexer:
             for token in sorted(self.postings_dictionary[key]):
                 if dict_lines.get(token) is None:
                     dict_lines[token] = {}
-                # get length of posting list
-                # length_list = len(self.postings_dictionary[key][token])
                 write_string += ""#str(length_list)
                 for tuple_iter in sorted(self.postings_dictionary[key][token]):
                     # Writing doc id and frequency
@@ -305,11 +297,9 @@ if __name__ == "__main__":
     # stopword_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stopwords.txt")
     stopword_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stopwords_2.txt")
     
-    # print(stats_path, stopword_path, index_path)
-    
     indexer = Indexer(wikipedia_dump_path, index_directory=index_path, stop_words_file=stopword_path)
     total_words, num_tokens = indexer.run()
     
     with open(stats_path, "w") as fp:
         fp.write(str(total_words) + "\n" + str(num_tokens))
-    # print(wikipedia_dump_path)
+    

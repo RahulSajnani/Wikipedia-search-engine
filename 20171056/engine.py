@@ -168,35 +168,63 @@ class Engine:
         start_time = datetime.now()
         query_dict = {}
         query = query.lower()
-        query_split = query.split()
+        # query_split = query.split()
         
-        for token in query_split:
-            found = False
-            for category in self.query_categories:
-                if token.startswith(category):
-                    found = True
-                    if query_dict.get(self.query_categories[category]) is None:
-                        query_dict[self.query_categories[category]] = []    
-                    query_dict[self.query_categories[category]].append(self.stemmer.stemWord(token[2:]))
-            
-            # if category is not found
-            if not found:
-                # for category in self.query_categories:
+        query_split= query.split(":")
+        
+        if len(query_split) == 1:
+            # not a field query
+            # Search in page body as it contains all the content
+            category = "b:"
+            for token in query_split[0].split():
 
-                # If no category is mentioned then search in page body
-                category = "b:"
                 if query_dict.get(self.query_categories[category]) is None:
                     query_dict[self.query_categories[category]] = []    
-                query_dict[self.query_categories[category]].append(self.stemmer.stemWord(token))
-                
+                query_dict[self.query_categories[category]].append(self.stemmer.stemWord(token)) 
+    
+        else:
+            # Field queries !!!!
+
+            words = query.split()
+            category_loop = "b:"
+            first_token = True
+            for token in words:
+                for category in self.query_categories:        
+                    if token is not None:    
+                        if token.startswith(category):
+                            category_loop = category
+                            if query_dict.get(self.query_categories[category_loop]) is None:
+                                query_dict[self.query_categories[category_loop]] = []    
+                            if len(token) > 2:
+                                token = token[2:]
+                            else:
+                                token = None
+                                # first_token = True
+                                # query_dict[self.query_categories[category_loop]].append(self.stemmer.stemWord(token[2:]))
+                if token is not None:
+                    query_dict[self.query_categories[category_loop]].append(self.stemmer.stemWord(token))
+
         # print(query_dict)
 
         postings_list_dict = self.get_postings_list(query_dict)
         # print(postings_list_dict)
         query_result = self.merge_postings_list_dict(postings_list_dict)
         end_time = datetime.now()
-        print("Posting's list", query_result, "\n", len(query_result), " Search results in ", str(end_time - start_time))
+        print("Posting's list:", query_result, "\n", len(query_result), " Search results in ", str(end_time - start_time), " for query ", query)
         return query_result
+
+    def search_from_file(self, filename):
+        '''
+        Search from file 
+        '''
+        with open(filename) as fp:
+            lines = fp.readlines()
+        
+        print(lines)
+        
+        for line in lines:
+            self.search(line.split('\n')[0])
+        
 
     def run(self):
         '''
@@ -214,7 +242,12 @@ class Engine:
 if __name__ == "__main__":
 
     index_path = sys.argv[1]
+    query_file = sys.argv[2]
 
+    # Search engine class
     search_engine = Engine(index_path)
     # Run the search engine
-    search_engine.run()
+    # search_engine.run()
+    # Search from file
+    search_engine.search_from_file(query_file)
+    
