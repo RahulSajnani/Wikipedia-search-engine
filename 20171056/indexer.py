@@ -21,7 +21,7 @@ class Indexer:
     Creates index for given XML file
     '''
     
-    def __init__(self, xml_file_path, index_directory, stop_words_file = "./stopwords.txt"):
+    def __init__(self, xml_file_path, index_directory, stop_words_file):
 
         self.parser = etree.iterparse(xml_file_path, events = ("start", "end"))
         
@@ -298,11 +298,15 @@ class Indexer:
 
 if __name__ == "__main__":
 
+    run_directory_path = os.path.abspath(os.getcwd())
     wikipedia_dump_path = sys.argv[1]
-    index_path = sys.argv[2]
-    stats_path = sys.argv[3]
-
-    indexer = Indexer(wikipedia_dump_path, index_directory=index_path)
+    index_path = os.path.join(run_directory_path, sys.argv[2])
+    stats_path = os.path.join(run_directory_path, sys.argv[3])
+    stopword_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stopwords.txt")
+    
+    # print(stats_path, stopword_path, index_path)
+    
+    indexer = Indexer(wikipedia_dump_path, index_directory=index_path, stop_words_file=stopword_path)
     total_words, num_tokens = indexer.run()
     
     with open(stats_path, "w") as fp:
