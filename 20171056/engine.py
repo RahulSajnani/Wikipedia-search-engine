@@ -248,6 +248,9 @@ if __name__ == "__main__":
     search_engine = Engine(index_path)
     # Run the search engine
     # search_engine.run()
-    # Search from file
-    search_engine.search_from_file(query_file)
-    
+    if os.path.exists(query_file):
+        # Search from file
+        search_engine.search_from_file(query_file)
+    else:
+        # Search from query 
+        search_engine.search(query_file)
