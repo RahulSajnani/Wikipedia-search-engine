@@ -103,7 +103,7 @@ class Indexer:
 
         external_links = []
         lines = body.split("==")[-1]
-        lines = body.split("\n")
+        lines = lines.split("\n")
 
         for line in lines:
             if re.match(r"\*(.*)", line):
