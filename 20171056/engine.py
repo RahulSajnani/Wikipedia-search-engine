@@ -7,6 +7,7 @@ import os
 import linecache
 import heapq
 import readline
+from datetime import datetime
 
 '''
 Author: Rahul Sajnani
@@ -77,7 +78,7 @@ class Engine:
                 # If token in dictionary
                 if (self.tokens_dict.get(token) is not None):
                     # If token is present in the respective category
-                    if self.tokens_dict[token][self.categories.index(category)] != "-1": 
+                    if self.tokens_dict[token][self.categories.index(category)] != "0": 
                         # Get line :)
                         postings_list_dict = self.decode_line(linecache.getline(filename, int(self.tokens_dict[token][self.categories.index(category)])))
                         found = True
@@ -136,7 +137,8 @@ class Engine:
             for token in posting_list_dict[category]:
                 postings_dict_size_heap.append((posting_list_dict[category][token]["size"], category, token))
         
-        # If only one query
+        # print(postings_dict_size_heap)
+        # If only one token
         if len(postings_dict_size_heap) == 1:
 
             return posting_list_dict[category][token]["postings_list"]
@@ -154,7 +156,7 @@ class Engine:
                 first_merge = False
             else:
                 posting_tuple_1 = heapq.heappop(postings_dict_size_heap)
-                search_doc_id = self.merge_postings_list(search_doc_id, posting_list_dict[posting_tuple_2[1]][posting_tuple_2[2]]["postings_list"])
+                search_doc_id = self.merge_postings_list(search_doc_id, posting_list_dict[posting_tuple_1[1]][posting_tuple_1[2]]["postings_list"])
         
         return search_doc_id
 
@@ -163,6 +165,7 @@ class Engine:
         Perform a search
         '''
 
+        start_time = datetime.now()
         query_dict = {}
         query = query.lower()
         query_split = query.split()
@@ -189,8 +192,10 @@ class Engine:
         # print(query_dict)
 
         postings_list_dict = self.get_postings_list(query_dict)
+        # print(postings_list_dict)
         query_result = self.merge_postings_list_dict(postings_list_dict)
-        
+        end_time = datetime.now()
+        print("Posting's list", query_result, "\n", len(query_result), " Search results in ", str(end_time - start_time))
         return query_result
 
     def run(self):
@@ -203,7 +208,7 @@ class Engine:
             
             query = input("\n$>")
             search_result = self.search(query)
-            print(search_result, "\n", len(search_result), "Search results")
+            # print(search_result, "\n", len(search_result), "Search results")
 
             
 if __name__ == "__main__":

@@ -214,7 +214,7 @@ class Indexer:
             for key in categories:
                 # get length of posting list
                 if dict_lines[token].get(key) is None:
-                    write_string += " -1"
+                    write_string += " 0"
                 else:
                     write_string += " %s" % (str(dict_lines[token][key]))
             
@@ -302,7 +302,8 @@ if __name__ == "__main__":
     wikipedia_dump_path = sys.argv[1]
     index_path = os.path.join(run_directory_path, sys.argv[2])
     stats_path = os.path.join(run_directory_path, sys.argv[3])
-    stopword_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stopwords.txt")
+    # stopword_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stopwords.txt")
+    stopword_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stopwords_2.txt")
     
     # print(stats_path, stopword_path, index_path)
     
