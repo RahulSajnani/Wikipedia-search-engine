@@ -24,7 +24,7 @@ class Engine:
 
         self.index_path = index_path
         self.categories = sorted(["references", "body", "infobox", "title", "category", "links"])
-        self.query_categories = {"c:": "category", "b:": "body", "t:": "title", "i:": "infobox", "r:": "references", "l:": "links"}
+        self.query_categories = {"c:": "category", "b:": "body", "t:": "title", "i:": "infobox", "r:": "references", "e:": "links"}
         self.tokens_dict = self.get_tokens()
         self.stemmer = Stemmer.Stemmer("english")
         
