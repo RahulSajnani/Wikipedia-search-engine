@@ -202,6 +202,8 @@ class Engine:
                                 # first_token = True
                                 # query_dict[self.query_categories[category_loop]].append(self.stemmer.stemWord(token[2:]))
                 if token is not None:
+                    if query_dict.get(self.query_categories[category_loop]) is None:
+                        query_dict[self.query_categories[category_loop]] = []
                     query_dict[self.query_categories[category_loop]].append(self.stemmer.stemWord(token))
 
         # print(query_dict)
