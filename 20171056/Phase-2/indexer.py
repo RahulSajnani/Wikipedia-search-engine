@@ -149,8 +149,8 @@ class Indexer:
             
             # Cleaning body
             page_body = re.sub('<.*?>',' ',page_body,flags = re.DOTALL)
-            page_body = re.sub('{{([^}{]*)}}','',page_body,flags = re.DOTALL)
-            page_body = re.sub('{{([^}]*)}}','',page_body,flags = re.DOTALL)
+            page_body = re.sub('{{([^}{]*)}}',' ',page_body,flags = re.DOTALL)
+            page_body = re.sub('{{([^}]*)}}',' ',page_body,flags = re.DOTALL)
             
             page_dictionary["category"] = page_category
             page_dictionary["infobox"] = page_infobox
