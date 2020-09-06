@@ -281,7 +281,9 @@ class Indexer:
                     # if word not in self.stop_words:
                     if key != "title":
                         if self.stop_words_dict.get(word) is None:    
-                            word = self.stemmer.stemWord(word)
+                            if self.stem_dictionary.get(word) is None:
+                                self.stem_dictionary[word] = self.stemmer.stemWord(word)
+                            word = self.stem_dictionary[word]
                             if tokens_dict[key].get(word) is not None:
                                 tokens_dict[key][word] += 1
                             else:
@@ -448,7 +450,7 @@ class Indexer:
 
         self.index_count += 1
         self.postings_dictionary.clear()
-
+        self.stem_dictionary.clear()
         dict_lines.clear()
         gc.collect()
 
@@ -517,17 +519,17 @@ class Indexer:
                         root.clear()
                     
                         if self.page_counter % self.save_page_freq == 0:
-                            print(self.page_counter, self.save_page_freq)
+                            # print(self.page_counter, self.save_page_freq)
                             self.write_index()
                     # Clearing element  
                     element.clear()
 
                 last_tag = tag_name
 
-        self.titles_file_pointer.close()
         if self.postings_dictionary:
             self.write_index()
         
+        self.titles_file_pointer.close()
         self.merge_indexes()
         print(self.page_counter, " pages indexed")
         
