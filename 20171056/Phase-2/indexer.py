@@ -30,7 +30,7 @@ class MergeIndex:
         self.index_count = index_count
         self.categories = sorted(["references", "body", "infobox", "title", "category", "links"])
         self.files_dictionary = self.get_index_file_dict()
-        print(self.files_dictionary)
+        # print(self.files_dictionary)
     
     def get_index_file_dict(self):
         '''
@@ -99,7 +99,6 @@ class MergeIndex:
         '''
         token_pair = heapq.heappop(heap)
         fp = file_pointers[token_pair[1][-1]]
-
         read_token = self.read_token_line(fp.readline())
         
         if read_token is not None:
@@ -107,8 +106,16 @@ class MergeIndex:
             read_token[1].append(token_pair[1][-1])
             heapq.heappush(heap, read_token)
         else:
+            # Once index is complete for file delete older indexes
+            for field in self.categories:
+                path = self.files_dictionary[field][token_pair[1][-1]]
+                os.remove(path)
+                print("Deleting index file ", path)
+            
             fp.close()
-
+            os.remove(self.files_dictionary["tokens"][token_pair[1][-1]])
+            print("Deleting index file ", self.files_dictionary["tokens"][token_pair[1][-1]])
+            
         return token_pair
 
     def decode_line(self, line):
@@ -193,7 +200,7 @@ class MergeIndex:
         for field in self.categories:
             file_output_pointers[field] = [open(os.path.join(output_directory, ("index_%s.txt" % str(field))), "w"), 1]
         file_output_pointers["tokens"] = [open(os.path.join(output_directory, "tokens.txt"), "w"), 1]
-        del(files_dictionary["tokens"])
+        # del(files_dictionary["tokens"])
         
         for token_file_name in token_files:
             fp = open(token_file_name, "r")
@@ -208,8 +215,7 @@ class MergeIndex:
             token_pair = self.pop_token(tokens_heap, file_pointers)
             posting_dict = self.get_all_postings_list(token_pair, files_dictionary)
             repeated_token_list = []
-            # print(posting_dict)
-            # print(token_pair[0])
+
             if len(tokens_heap):
                 while token_pair[0] == tokens_heap[0][0]:
                     token_pair_2 = self.pop_token(tokens_heap, file_pointers)
@@ -304,10 +310,7 @@ class Indexer:
                     self.postings_dictionary[key][token] = []
                 
                 self.postings_dictionary[key][token].append((id, tokens_dict[key][token]))
-                # heapq.heappush(self.postings_dictionary[key][token], (id, tokens_dict[key][token]))
-        
-        # return postings_dict
-        
+                
 
     def get_external_links(self, body):
         '''
@@ -443,7 +446,6 @@ class Indexer:
         self.index_count += 1
         self.postings_dictionary.clear()
 
-        print(self.index_count, self.postings_dictionary)
         dict_lines.clear()
         gc.collect()
 

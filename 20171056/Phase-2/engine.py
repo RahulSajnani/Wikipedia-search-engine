@@ -221,10 +221,12 @@ class Engine:
         postings_list_dict = self.get_postings_list(query_dict)
      
         query_result = self.merge_postings_list_dict(postings_list_dict)
-        end_time = datetime.now()
         if k > 0:
             query_result = heapq.nlargest(k, query_result, key=itemgetter(1))
-        
+        else:
+            k = len(query_result)
+            query_result = heapq.nlargest(k, query_result, key=itemgetter(1))
+        end_time = datetime.now()
         print("Posting's list:", query_result, "\n", len(query_result), " Search results in ", str(end_time - start_time), " for query ", query)
 
         return query_result
