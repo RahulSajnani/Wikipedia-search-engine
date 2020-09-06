@@ -12,7 +12,7 @@ from datetime import datetime
 '''
 Author: Rahul Sajnani
 '''
-
+        
 class Engine:
     '''
     Search engine class
@@ -55,7 +55,7 @@ class Engine:
         line_dict["postings_list"] = []
         
         for i in range(0, len(line), 2):
-            line_dict["postings_list"].append((int(line[i]), int(line[i + 1])))
+            line_dict["postings_list"].append((int(line[i]), float(line[i + 1])))
         
         line_dict["size"] = len(line_dict["postings_list"])
 
@@ -170,7 +170,17 @@ class Engine:
         query = query.lower()
         # query_split = query.split()
         
-        query_split= query.split(":")
+        query_separate = query.split(",")
+        
+        k = -1
+        if len(query_separate) == 2:
+            k = query_separate[0]
+            query = query_separate[1]
+        else:
+            
+            query = query_separate[0]
+
+        query_split = query.split(":")
         
         if len(query_split) == 1:
             # not a field query
@@ -209,10 +219,11 @@ class Engine:
         # print(query_dict)
 
         postings_list_dict = self.get_postings_list(query_dict)
-        # print(postings_list_dict)
+     
         query_result = self.merge_postings_list_dict(postings_list_dict)
         end_time = datetime.now()
         print("Posting's list:", query_result, "\n", len(query_result), " Search results in ", str(end_time - start_time), " for query ", query)
+        
         return query_result
 
     def search_from_file(self, filename):

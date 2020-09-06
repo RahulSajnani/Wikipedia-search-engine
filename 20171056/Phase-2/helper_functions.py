@@ -105,7 +105,7 @@ def write_posting_dict(token, posting_dict, file_output_pointers):
             write_string = ""
 
             for tuple_iter in posting_dict[field]["postings_list"]:
-                write_string += "%d %s " % (tuple_iter[0], str(math.log((1 + tuple_iter[1]), 10) * math.log(page_counter / df, 10)))
+                write_string += "%d %.2f " % (tuple_iter[0], (math.log((1 + tuple_iter[1]), 10) * math.log(page_counter / df, 10)))
             write_string += "\n"
 
             line = file_output_pointers[field][1]
