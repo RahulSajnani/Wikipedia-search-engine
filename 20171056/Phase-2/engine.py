@@ -8,6 +8,7 @@ import linecache
 import heapq
 import readline
 from datetime import datetime
+from operator import itemgetter
 
 '''
 Author: Rahul Sajnani
@@ -174,10 +175,9 @@ class Engine:
         
         k = -1
         if len(query_separate) == 2:
-            k = query_separate[0]
+            k = int(query_separate[0])
             query = query_separate[1]
         else:
-            
             query = query_separate[0]
 
         query_split = query.split(":")
@@ -222,8 +222,11 @@ class Engine:
      
         query_result = self.merge_postings_list_dict(postings_list_dict)
         end_time = datetime.now()
-        print("Posting's list:", query_result, "\n", len(query_result), " Search results in ", str(end_time - start_time), " for query ", query)
+        if k > 0:
+            query_result = heapq.nlargest(k, query_result, key=itemgetter(1))
         
+        print("Posting's list:", query_result, "\n", len(query_result), " Search results in ", str(end_time - start_time), " for query ", query)
+
         return query_result
 
     def search_from_file(self, filename):
