@@ -246,15 +246,14 @@ class Indexer:
 
         self.xml_files = sorted(glob.glob(os.path.join(xml_directory_path, "enwiki-*")))
         self.index_count = 0
-        self.titles_file_pointer = open(os.path.join(index_directory, "titles.txt"), "w")
         self.titles = ""
         self.stem_dictionary = {}
+        
+        
         self.save_page_freq = 20000
         # Reading stop words list
         with open(stop_words_file, "r") as fp:
             self.stop_words = fp.readlines()
-        
-        # print(self.stop_words)
         self.stop_words_dict = {}
         # self.stop_words = [word.strip("'") for word in self.stop_words]
         for word in self.stop_words:
@@ -264,6 +263,10 @@ class Indexer:
         self.postings_dictionary = dict()
         self.index_directory = index_directory
         self.page_counter = 0
+        if not os.path.exists(self.index_directory):
+            os.makedirs(self.index_directory)
+        self.titles_file_pointer = open(os.path.join(index_directory, "titles.txt"), "w")
+        # print(self.stop_words)
 
     def process_page(self, page_dict):
         '''
@@ -395,9 +398,7 @@ class Indexer:
         Writing index to respective files
         '''
         dict_lines = {}
-        if not os.path.exists(self.index_directory):
-            os.makedirs(self.index_directory)
-
+        
         for key in (self.postings_dictionary):
             # dict_lines[key] = {}
             filename = "index_%s_%d.txt" % (str(key), self.index_count)
