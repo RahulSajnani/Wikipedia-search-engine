@@ -28,7 +28,8 @@ class Engine:
         self.query_categories = {"c:": "category", "b:": "body", "t:": "title", "i:": "infobox", "r:": "references", "e:": "links"}
         self.tokens_dict = self.get_tokens()
         self.stemmer = Stemmer.Stemmer("english")
-        
+        self.titles_file = os.path.join(index_path, "titles.txt")
+
     def get_tokens(self):
         '''
         Reads the tokens file with line numbers
@@ -227,7 +228,12 @@ class Engine:
             k = len(query_result)
             query_result = heapq.nlargest(k, query_result, key=itemgetter(1))
         end_time = datetime.now()
-        print("Posting's list:", query_result, "\n", len(query_result), " Search results in ", str(end_time - start_time), " for query ", query)
+        
+        top_k_titles = []
+        for tuple in query_result:
+            top_k_titles.append(linecache.getline(self.titles_file, tuple[0])[:-1])
+
+        print("Posting's list:", query_result, "\n", len(query_result), " Search results in ", str(end_time - start_time), " for query ", query, "\n", top_k_titles)
 
         return query_result
 

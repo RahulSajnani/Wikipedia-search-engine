@@ -239,10 +239,11 @@ class Indexer:
     def __init__(self, xml_directory_path, index_directory, stop_words_file):
 
         self.xml_files = sorted(glob.glob(os.path.join(xml_directory_path, "enwiki-*")))
-        
-        
         self.index_count = 0
-        self.save_page_freq = 15000
+        self.titles_file_pointer = open(os.path.join(index_directory, "titles.txt"), "w")
+        self.titles = ""
+        self.stem_dictionary = {}
+        self.save_page_freq = 20000
         # Reading stop words list
         with open(stop_words_file, "r") as fp:
             self.stop_words = fp.readlines()
@@ -440,7 +441,9 @@ class Indexer:
         
         if write_string != "":
             fp.write(write_string)
-
+        
+        self.titles_file_pointer.write(self.titles)
+        self.titles = ""
         fp.close()
 
         self.index_count += 1
@@ -504,11 +507,12 @@ class Indexer:
                     elif tag_name == "text":
                             page_body = element.text
                         
-                    elif tag_name == "page":    
+                    elif tag_name == "page":
+
                         self.page_counter += 1
-                        
                         # print(page_id, " ", page_title)
-                        page_dict = {"id": page_id, "title": page_title, "body": page_body}
+                        page_dict = {"id": self.page_counter, "title": page_title, "body": page_body}
+                        self.titles += page_title + "\n"
                         total_words += self.create_postings_list(page_dict)
                         root.clear()
                     
@@ -520,6 +524,7 @@ class Indexer:
 
                 last_tag = tag_name
 
+        self.titles_file_pointer.close()
         if self.postings_dictionary:
             self.write_index()
         
