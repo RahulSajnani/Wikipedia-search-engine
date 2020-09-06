@@ -1,8 +1,10 @@
-import re, os, linecache
+import re, os, linecache, gc
 import heapq
+import math
 
-global categories
+global categories, page_counter
 categories = sorted(["references", "body", "infobox", "title", "category", "links"])
+page_counter = 2000000
 
 def read_token_line(line):
 
@@ -15,7 +17,7 @@ def read_token_line(line):
     return token_pair
 
 
-def merge_postings_list(postings_dict, postings_dict_2):
+def merge_postings_list(postings_dict, repeated_dict_list):
     '''
     Merge two posting's list 
     '''
@@ -23,61 +25,25 @@ def merge_postings_list(postings_dict, postings_dict_2):
     combined_postings_list = {}
 
     for field in categories:
-        
         doc_id_list = []
+        combined_postings_list[field] = {}
+        current_posting_list = [postings_dict[field]["postings_list"]]    
+        for tokens_dict in repeated_dict_list:
+            if len(tokens_dict[field]["postings_list"]) > 0:
+                current_posting_list.append(tokens_dict[field]["postings_list"])
+
+        merged_list = heapq.merge(*current_posting_list)
         
-        if postings_dict.get(field) is None:
-            postings_dict[field] = {"postings_list": []}
+        for idx, doc_pair in enumerate(merged_list):
+            doc_id_list.append(doc_pair)
         
-        if postings_dict_2.get(field) is None:
-            postings_dict_2[field] = {"postings_list": []}
+        
+        if len(doc_id_list):
+            combined_postings_list[field]["postings_list"] = doc_id_list
+        else:
+            combined_postings_list[field]["postings_list"] = []
 
-        postings_list_1 = postings_dict[field]["postings_list"]
-        postings_list_2 = postings_dict_2[field]["postings_list"]
-
-        if len(postings_dict[field]["postings_list"]) > 0 and len(postings_dict_2[field]["postings_list"]) > 0:           
-            
-            
-            ptr_1 = 0
-            ptr_2 = 0
-
-            while ((ptr_1 < len(postings_list_1)) and (ptr_2 < len(postings_list_2))):
-                
-                if postings_list_1[ptr_1][0] > postings_list_2[ptr_2][0]:
-                    doc_id_list.append(postings_list_2[ptr_2])
-                    ptr_2 += 1
-
-
-                elif postings_list_1[ptr_1][0] < postings_list_2[ptr_2][0]:
-                    doc_id_list.append(postings_list_1[ptr_1])
-                    ptr_1 += 1
-
-                else:
-                    # Doc ids are same 
-                    avg_doc_count = (postings_list_1[ptr_1][1] + postings_list_2[ptr_2][1])
-                    doc_id_list.append((postings_list_1[ptr_1][0], avg_doc_count))
-                    ptr_1 += 1
-                    ptr_2 += 1
-
-            while ((ptr_1 < len(postings_list_1))):
-                
-                doc_id_list.append(postings_list_1[ptr_1])
-                ptr_1 += 1
-
-            while ((ptr_2 < len(postings_list_2))):
-
-                doc_id_list.append(postings_list_2[ptr_2])
-                ptr_2 += 1
-
-        elif len(postings_list_1) > 0:
-            doc_id_list = postings_list_1 
-
-        else: 
-            doc_id_list = postings_list_2
-
-        # print(len(doc_id_list), len(postings_list_1), len(postings_list_2))
-        combined_postings_list[field] = {"postings_list": doc_id_list} 
-
+        
     return combined_postings_list
 
 def pop_token(heap, file_pointers):
@@ -128,12 +94,47 @@ def get_all_postings_list(token_pair, files_dictionary):
 
     return token_dictionary
 
-def merge_files(files_dictionary, k = 4):
+def write_posting_dict(token, posting_dict, file_output_pointers):
+
+    token_write_string = str(token)
+    # print(posting_dict)
+    for field in categories:
+        
+        df = len(posting_dict[field]["postings_list"])
+        if df:
+            write_string = ""
+
+            for tuple_iter in posting_dict[field]["postings_list"]:
+                write_string += "%d %s " % (tuple_iter[0], str(math.log((1 + tuple_iter[1]), 10) * math.log(page_counter / df, 10)))
+            write_string += "\n"
+
+            line = file_output_pointers[field][1]
+            file_output_pointers[field][0].write(write_string)
+            file_output_pointers[field][1] = line + 1
+            token_write_string += " %d" % line
+        else:
+            token_write_string += " 0"
+    token_write_string += "\n"
+    # print(token_write_string)
+    file_output_pointers["tokens"][0].write(token_write_string)
+    file_output_pointers["tokens"][1] += 1
+
+def merge_files(files_dictionary,  output_directory):
     
     
     token_files = files_dictionary["tokens"]
     file_pointers = []
     tokens_heap = []
+    file_output_pointers = {}
+    
+    if not os.path.exists(output_directory):
+        # os.rmdir(output_directory)
+        os.makedirs(output_directory)
+
+    for field in categories:
+        file_output_pointers[field] = [open(os.path.join(output_directory, ("index_%s.txt" % str(field))), "w"), 1]
+    file_output_pointers["tokens"] = [open(os.path.join(output_directory, "tokens.txt"), "w"), 1]
+
     del(files_dictionary["tokens"])
     
     for token_file_name in token_files:
@@ -148,15 +149,23 @@ def merge_files(files_dictionary, k = 4):
         
         token_pair = pop_token(tokens_heap, file_pointers)
         posting_dict = get_all_postings_list(token_pair, files_dictionary)
-        print(posting_dict)
+        repeated_token_list = []
+        # print(posting_dict)
         # print(token_pair[0])
         if len(tokens_heap):
             while token_pair[0] == tokens_heap[0][0]:
                 token_pair_2 = pop_token(tokens_heap, file_pointers)
                 posting_dict_2 = get_all_postings_list(token_pair_2, files_dictionary)
-                posting_dict = merge_postings_list(posting_dict, posting_dict_2)
-                
-    print("end")
+                repeated_token_list.append(posting_dict_2)
+                # posting_dict = merge_postings_list(posting_dict, posting_dict_2)
+            if len(repeated_token_list):
+                merged_dict = merge_postings_list(posting_dict, repeated_token_list)
+                posting_dict = merged_dict
+        
+        write_posting_dict(token_pair[0], posting_dict, file_output_pointers)
+
+        repeated_token_list.clear()
+    # print("end")
 
 
 if __name__=="__main__":
@@ -165,5 +174,5 @@ if __name__=="__main__":
     for field in files_dictionary:
         for i in range(len(files_dictionary[field])):
             files_dictionary[field][i] = os.path.join("./search_index/", files_dictionary[field][i])
-    merge_files(files_dictionary)
+    merge_files(files_dictionary, "./combined_index")
     pass

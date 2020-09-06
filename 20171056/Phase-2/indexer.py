@@ -158,7 +158,13 @@ class Indexer:
             page_dictionary["links"] = page_links
             page_dictionary["body"] = page_body
             # page_body = re.sub(r"(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)", r" ", page_body)
-
+        else:
+            page_dictionary["category"] = ""
+            page_dictionary["infobox"] = ""
+            page_dictionary["references"] = ""
+            page_dictionary["links"] = ""
+            page_dictionary["body"] = ""
+            
 
         tokens_dict, total_words = self.process_page(page_dictionary)
         self.process_tokens_dict(page_dictionary["id"], tokens_dict)
