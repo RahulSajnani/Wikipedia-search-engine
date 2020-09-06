@@ -550,11 +550,11 @@ if __name__ == "__main__":
     # stopword_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stopwords.txt")
     stopword_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stopwords_2.txt")
     
-    # indexer = Indexer(wikipedia_dump_path, index_directory=index_path, stop_words_file=stopword_path)
-    # indexer.run()
+    indexer = Indexer(wikipedia_dump_path, index_directory=index_path, stop_words_file=stopword_path)
+    indexer.run()
     
-    merger = MergeIndex(page_count=2000000, index_path=index_path, index_count=6)
-    merger.merge_files()
+    # merger = MergeIndex(page_count=2000000, index_path=index_path, index_count=6)
+    # merger.merge_files()
     # with open(stats_path, "w") as fp:
     #     fp.write(str(total_words) + "\n" + str(num_tokens))
     
