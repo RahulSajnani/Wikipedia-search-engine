@@ -4,7 +4,7 @@ except ImportError:
     import xml.etree.ElementTree as etree
 
 import sys
-import helper_functions
+import config
 import re
 import Stemmer
 import os
@@ -30,6 +30,7 @@ class MergeIndex:
         self.index_count = index_count
         self.categories = sorted(["references", "body", "infobox", "title", "category", "links"])
         self.files_dictionary = self.get_index_file_dict()
+        self.file_mapping = config.alphabet_file_mapping
         # print(self.files_dictionary)
     
     def get_index_file_dict(self):
@@ -160,6 +161,7 @@ class MergeIndex:
         Write postings list to file
         '''
         token_write_string = str(token)
+        block = config.alphabet_file_mapping[token[0]]
         # print(posting_dict)
         for field in self.categories:
             
@@ -170,9 +172,9 @@ class MergeIndex:
                     write_string += "%d %.2f " % (tuple_iter[0], (math.log((1 + tuple_iter[1]), 10) * math.log(self.page_count / df, 10)))
                 
                 write_string += "\n"
-                line = file_output_pointers[field][1]
-                file_output_pointers[field][0].write(write_string)
-                file_output_pointers[field][1] = line + 1
+                line = file_output_pointers[field][block][1]
+                file_output_pointers[field][block][0].write(write_string)
+                file_output_pointers[field][block][1] = line + 1
                 token_write_string += " %d" % line
             else:
                 token_write_string += " 0"
@@ -198,8 +200,12 @@ class MergeIndex:
 
         # Output of merged index
         for field in self.categories:
-            file_output_pointers[field] = [open(os.path.join(output_directory, ("index_%s.txt" % str(field))), "w"), 1]
+            file_output_pointers[field] = []
+            for i in range(config.max_division):
+                 file_output_pointers[field].append([open(os.path.join(output_directory, ("index_block_%d_%s.txt" % (i, str(field)))), "w"), 1])
+                 
         file_output_pointers["tokens"] = [open(os.path.join(output_directory, "tokens.txt"), "w"), 1]
+        # print(file_output_pointers)
         # del(files_dictionary["tokens"])
         
         for token_file_name in token_files:
@@ -544,11 +550,11 @@ if __name__ == "__main__":
     # stopword_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stopwords.txt")
     stopword_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stopwords_2.txt")
     
-    indexer = Indexer(wikipedia_dump_path, index_directory=index_path, stop_words_file=stopword_path)
-    indexer.run()
+    # indexer = Indexer(wikipedia_dump_path, index_directory=index_path, stop_words_file=stopword_path)
+    # indexer.run()
     
-    # merger = MergeIndex(page_count=2000000, index_path=index_path, index_count=4)
-    # merger.merge_files()
+    merger = MergeIndex(page_count=2000000, index_path=index_path, index_count=6)
+    merger.merge_files()
     # with open(stats_path, "w") as fp:
     #     fp.write(str(total_words) + "\n" + str(num_tokens))
     

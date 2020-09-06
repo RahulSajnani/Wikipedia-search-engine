@@ -1,6 +1,6 @@
 import xml.etree.ElementTree as etree
 import sys
-import helper_functions
+import config
 import re
 import Stemmer
 import os
@@ -71,10 +71,12 @@ class Engine:
         
         postings_list = {}
         for category in query_dict:
-            filename = "index_%s.txt" % str(category)
-            filename = os.path.join(self.index_path, filename)
             
             for token in query_dict[category]:
+                
+                block = config.alphabet_file_mapping[token[0]]
+                filename = "index_block_%d_%s.txt" % (block, str(category))
+                filename = os.path.join(self.index_path, filename)
                 # print(token)
                 found = False
                 # If token in dictionary
