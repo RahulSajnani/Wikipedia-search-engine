@@ -179,7 +179,7 @@ class MergeIndex:
                     write_string += "%d %.2f " % (tuple_iter[0], (math.log((1 + tuple_iter[1]), 10) * math.log(self.page_count / df, 10)))
                 
                 write_string += "\n"
-                seek = file_output_pointers[field][block][1]
+                seek = file_output_pointers[field][block][0].tell()
                 increment = file_output_pointers[field][block][0].write(write_string)
                 seek_value = seek + increment
                 file_output_pointers[field][block][1] = seek_value
@@ -210,11 +210,10 @@ class MergeIndex:
         for field in self.categories:
             file_output_pointers[field] = []
             for i in range(config.max_division):
-                 file_output_pointers[field].append([open(os.path.join(output_directory, ("index_block_%d_%s.txt" % (i, str(field)))), "w"), 1])
+                 file_output_pointers[field].append([open(os.path.join(output_directory, ("index_block_%d_%s.txt" % (i, str(field)))), "w"), 0])
                  
         file_output_pointers["tokens"] = [open(os.path.join(output_directory, "tokens.txt"), "w"), 1]
-        # print(file_output_pointers)
-        # del(files_dictionary["tokens"])
+ 
         
         for token_file_name in token_files:
             fp = open(token_file_name, "r")
@@ -239,11 +238,7 @@ class MergeIndex:
                     token_pair_2 = self.pop_token(tokens_heap, file_pointers)
                     posting_dict_2 = self.get_all_postings_list(token_pair_2, files_dictionary)
                     repeated_token_list.append(posting_dict_2)
-                    # print("passed")
-                    # if counter % clear_cache_freq == 0:
-                    #     # print("clear")
-                    #     linecache.clearcache()
-                    # posting_dict = merge_postings_list(posting_dict, posting_dict_2)
+
                 if len(repeated_token_list):
                     merged_dict = self.merge_postings_list(posting_dict, repeated_token_list)
                     posting_dict = merged_dict

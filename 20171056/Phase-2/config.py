@@ -4,7 +4,7 @@ import math
 
 
 categories = sorted(["references", "body", "infobox", "title", "category", "links"])
-merge_characters_length = 3
+merge_characters_length = 1 #3
 alphabet_file_mapping = {}
 
 for i in range(97, 123):

@@ -9,6 +9,7 @@ import heapq
 import readline
 from datetime import datetime
 from operator import itemgetter
+import time
 
 '''
 Author: Rahul Sajnani
@@ -31,6 +32,7 @@ class Engine:
         self.stemmer = Stemmer.Stemmer("english")
         self.titles_file = os.path.join(index_path, "titles.txt")
         self.file_pointers = self.get_index_pointers()
+        self.relevance_weights = {"references": 0.1, "body": 0.3, "infobox": 0.9, "title": 2, "category": 0.3, "links": 0.05}
     
     def get_tokens(self):
         '''
@@ -61,7 +63,7 @@ class Engine:
         return file_dict
 
 
-    def decode_line(self, line):
+    def decode_line(self, line, category_weight):
         '''
         Decode line from the file containing posting's list
         '''
@@ -73,7 +75,8 @@ class Engine:
         line_dict["postings_list"] = []
         
         for i in range(0, len(line), 2):
-            line_dict["postings_list"].append((int(line[i]), float(line[i + 1])))
+         
+            line_dict["postings_list"].append((int(line[i]), category_weight * float(line[i + 1])))
         
         line_dict["size"] = len(line_dict["postings_list"])
 
@@ -89,7 +92,7 @@ class Engine:
         for category in query_dict:
             
             for token in query_dict[category]:
-                
+                # print(token)
                 block = config.alphabet_file_mapping[token[0]]
                 filename = "index_block_%d_%s.txt" % (block, str(category))
                 fp = self.file_pointers[filename]
@@ -99,10 +102,11 @@ class Engine:
                     # If token is present in the respective category
                     if self.tokens_dict[token][self.categories.index(category)] != "n": 
                         # Get line :)
+                        # print(self.tokens_dict[token][self.categories.index(category)])
                         seek_value = int(self.tokens_dict[token][self.categories.index(category)])
                         fp.seek(seek_value)
                         line = fp.readline()
-                        postings_list_dict = self.decode_line(line)
+                        postings_list_dict = self.decode_line(line, category_weight = self.relevance_weights[category])
                         found = True
                         if postings_list.get(category) is None:
                             postings_list[category] = {}
@@ -117,9 +121,11 @@ class Engine:
         # print(postings_list)
         return postings_list
 
+
     def merge_postings_list(self, postings_list_1, postings_list_2):
         '''
-        Merge two posting's list 
+        Merge two posting's list (intersection) 
+
         '''
 
         ptr_1 = 0
@@ -129,7 +135,6 @@ class Engine:
 
         while ((ptr_1 < len(postings_list_1)) and (ptr_2 < len(postings_list_2))):
             
-
             if postings_list_1[ptr_1][0] > postings_list_2[ptr_2][0]:
                 ptr_2 += 1
 
@@ -146,31 +151,45 @@ class Engine:
 
         return doc_id_list
 
-    def merge_postings_list_dict(self, posting_list_dict):
+    def find_top_k(self, search_doc_id, max_k):
+        '''
+        Find top k search results
+        '''
+        if max_k > 0:
+            query_result = heapq.nlargest(max_k, search_doc_id, key=itemgetter(1))
+        else:
+            max_k = len(search_doc_id)
+            query_result = heapq.nlargest(max_k, search_doc_id, key=itemgetter(1))
+
+        return query_result
+
+    def merge_postings_list_dict(self, posting_list_dict, max_k):
         '''
         Merges dictionary of postings list for a query
         '''
 
+        
         # Doc ids of intersection of postings list
         search_doc_id = []
         postings_dict_size_heap = []
+        all_postings_list = []
         # print(posting_list_dict)
         for category in posting_list_dict:
             for token in posting_list_dict[category]:
                 postings_dict_size_heap.append((posting_list_dict[category][token]["size"], category, token))
-        
+                all_postings_list.append(posting_list_dict[category][token]["postings_list"])
+
+        postings_dict_size_heap_join = list(postings_dict_size_heap)
         # print(postings_dict_size_heap)
         # If only one token
         if len(postings_dict_size_heap) == 1:
-
-            return posting_list_dict[category][token]["postings_list"]
-
+            return self.find_top_k(posting_list_dict[category][token]["postings_list"], max_k)
 
         heapq.heapify(postings_dict_size_heap)
         first_merge = True
 
         while postings_dict_size_heap:
-            
+            # print("merging")
             if len(postings_dict_size_heap) > 1 and first_merge:
                 posting_tuple_1 = heapq.heappop(postings_dict_size_heap)
                 posting_tuple_2 = heapq.heappop(postings_dict_size_heap)
@@ -179,15 +198,36 @@ class Engine:
             else:
                 posting_tuple_1 = heapq.heappop(postings_dict_size_heap)
                 search_doc_id = self.merge_postings_list(search_doc_id, posting_list_dict[posting_tuple_1[1]][posting_tuple_1[2]]["postings_list"])
+
+        # print("check:", search_doc_id)
+
+        if len(search_doc_id) == 0:
+            #if no intersection found join all
+            merge_iter = heapq.merge(*all_postings_list)
+            prev = (-1, -1)
+            
+            for idx, doc_tuple in enumerate(merge_iter):
+                
+                # if same document found add the scores and continue
+                if prev[0] == doc_tuple[0]:
+                    prev = (doc_tuple[0], doc_tuple[1] + prev[1])
+                    continue
+                else:
+                    search_doc_id.append(prev)
+                    prev = doc_tuple
+            # Writing the last doc
+            search_doc_id.append(prev)
         
-        return search_doc_id
+        query_result = self.find_top_k(search_doc_id, max_k)
+
+        return query_result
 
     def search(self, query):
         '''
         Perform a search
         '''
 
-        start_time = datetime.now()
+        start_time = time.perf_counter()
         query_dict = {}
         query = query.lower()
         # query_split = query.split()
@@ -235,38 +275,61 @@ class Engine:
                     if query_dict.get(self.query_categories[category_loop]) is None:
                         query_dict[self.query_categories[category_loop]] = []
                     query_dict[self.query_categories[category_loop]].append(self.stemmer.stemWord(token))
-
+                    # print(self.stemmer.stemWord(token))
         # print(query_dict)
 
+        # Get postings list
         postings_list_dict = self.get_postings_list(query_dict)
-     
-        query_result = self.merge_postings_list_dict(postings_list_dict)
-        if k > 0:
-            query_result = heapq.nlargest(k, query_result, key=itemgetter(1))
-        else:
-            k = len(query_result)
-            query_result = heapq.nlargest(k, query_result, key=itemgetter(1))
-        end_time = datetime.now()
+        # Get query results 
+        query_result = self.merge_postings_list_dict(postings_list_dict, k)
+
+        # print(query_result)
+        
+        end_time = time.perf_counter()
+        
+        elapsed_time = end_time - start_time
         
         top_k_titles = []
         for tuple in query_result:
             top_k_titles.append(linecache.getline(self.titles_file, tuple[0])[:-1])
 
-        print("Posting's list:", query_result, "\n", len(query_result), " Search results in ", str(end_time - start_time), " for query ", query, "\n", top_k_titles)
+        return query_result, top_k_titles, elapsed_time
+      
 
-        return query_result
+    def write_search_result_file(self, all_results, all_titles, all_time, filename = "result.txt"):
+        '''
+        Write to file
+        '''
+        fp = open(filename, "w+")
 
-    def search_from_file(self, filename):
+        for i in range(len(all_results)):
+            N = len(all_results[i])
+            for j in range(len(all_results[i])):
+                string = "%d, %s\n" % (all_results[i][j][0], all_titles[i][j].lower())     
+                fp.write(string)
+            # Write time
+            string_time = "%f, %f \n \n" % (all_time[i], all_time[i] / N)
+            fp.write(string_time)
+
+    def search_from_file(self, filename, op_file = "result.txt"):
         '''
         Search from file 
         '''
         with open(filename) as fp:
             lines = fp.readlines()
         
-        print(lines)
-        
+
+        all_results = []
+        all_titles = []
+        all_time = []
+
         for line in lines:
-            self.search(line.split('\n')[0])
+            result, titles, elapsed_time = self.search(line.split('\n')[0])
+            all_results.append(result)
+            all_titles.append(titles)
+            all_time.append(elapsed_time)
+
+        self.write_search_result_file(all_results, all_titles, all_time, op_file)
         
 
     def run(self):
@@ -286,14 +349,14 @@ if __name__ == "__main__":
 
     index_path = sys.argv[1]
     query_file = sys.argv[2]
-
+    query_output = sys.argv[3]
     # Search engine class
     search_engine = Engine(index_path)
     # Run the search engine
     # search_engine.run()
     if os.path.exists(query_file):
         # Search from file
-        search_engine.search_from_file(query_file)
+        result = search_engine.search_from_file(query_file, query_output)
     else:
         # Search from query 
-        search_engine.search(query_file)
+        result = search_engine.search(query_file)
