@@ -32,7 +32,7 @@ class Engine:
         self.stemmer = Stemmer.Stemmer("english")
         self.titles_file = os.path.join(index_path, "titles.txt")
         self.file_pointers = self.get_index_pointers()
-        self.relevance_weights = {"references": 0.1, "body": 0.3, "infobox": 0.9, "title": 2, "category": 0.3, "links": 0.05}
+        self.relevance_weights = {"references": 0.1, "body": 0.5, "infobox": 1.5, "title": 3, "category": 1, "links": 0.1}
     
     def get_tokens(self):
         '''
@@ -75,7 +75,6 @@ class Engine:
         line_dict["postings_list"] = []
         
         for i in range(0, len(line), 2):
-         
             line_dict["postings_list"].append((int(line[i]), category_weight * float(line[i + 1])))
         
         line_dict["size"] = len(line_dict["postings_list"])
@@ -114,7 +113,7 @@ class Engine:
 
                 if not found:
                     if postings_list.get(category) is None:
-                            postings_list[category] = {}
+                        postings_list[category] = {}
                     postings_list[category][token] = {"size": 0, "postings_list": []}
         
 
@@ -168,7 +167,6 @@ class Engine:
         Merges dictionary of postings list for a query
         '''
 
-        
         # Doc ids of intersection of postings list
         search_doc_id = []
         postings_dict_size_heap = []
@@ -201,23 +199,33 @@ class Engine:
 
         # print("check:", search_doc_id)
 
-        if len(search_doc_id) == 0:
+        if len(search_doc_id) < max_k:
+          
             #if no intersection found join all
             merge_iter = heapq.merge(*all_postings_list)
             prev = (-1, -1)
-            
+            dict_doc = {}
+            if len(search_doc_id) > 0:
+                for tuple in search_doc_id:
+             
+                    dict_doc[tuple[0]] = 1
+           
             for idx, doc_tuple in enumerate(merge_iter):
-                
+           
                 # if same document found add the scores and continue
                 if prev[0] == doc_tuple[0]:
                     prev = (doc_tuple[0], doc_tuple[1] + prev[1])
                     continue
                 else:
-                    search_doc_id.append(prev)
+                   
+                    if prev[0] > -1 and dict_doc.get(prev[0]) is None:
+                        search_doc_id.append(prev)
                     prev = doc_tuple
             # Writing the last doc
-            search_doc_id.append(prev)
-        
+            
+            if prev[0] > -1 and dict_doc.get(prev[0]) is None:
+                search_doc_id.append(prev)
+          
         query_result = self.find_top_k(search_doc_id, max_k)
 
         return query_result
@@ -230,11 +238,11 @@ class Engine:
         start_time = time.perf_counter()
         query_dict = {}
         query = query.lower()
+        query_backup_dict = {}
         # query_split = query.split()
         
         query_separate = query.split(",")
-        
-        k = -1
+        k = 100
         if len(query_separate) == 2:
             k = int(query_separate[0])
             query = query_separate[1]
@@ -242,17 +250,17 @@ class Engine:
             query = query_separate[0]
 
         query_split = query.split(":")
-        
+        # default_dict = 
         if len(query_split) == 1:
             # not a field query
             # Search in page body as it contains all the content
-            category = "b:"
+            fields = ["b:", "t:", "i:"]
             for token in query_split[0].split():
-
-                if query_dict.get(self.query_categories[category]) is None:
-                    query_dict[self.query_categories[category]] = []    
-                query_dict[self.query_categories[category]].append(self.stemmer.stemWord(token)) 
-    
+                for category in fields:
+                    if query_dict.get(self.query_categories[category]) is None:
+                        query_dict[self.query_categories[category]] = []    
+                    query_dict[self.query_categories[category]].append(self.stemmer.stemWord(token)) 
+        
         else:
             # Field queries !!!!
             words = query.split()
@@ -269,21 +277,44 @@ class Engine:
                                 token = token[2:]
                             else:
                                 token = None
-                                # first_token = True
-                                # query_dict[self.query_categories[category_loop]].append(self.stemmer.stemWord(token[2:]))
+
                 if token is not None:
+                    stem_word = self.stemmer.stemWord(token)
+                    backup = []
+                    for backup_category in ["b:", "i:", "t:"]:
+                        if category_loop != backup_category:
+                            if query_backup_dict.get(self.query_categories[backup_category]) is None:
+                                query_backup_dict[self.query_categories[backup_category]] = []
+                            query_backup_dict[self.query_categories[backup_category]].append(stem_word)
+                        
                     if query_dict.get(self.query_categories[category_loop]) is None:
                         query_dict[self.query_categories[category_loop]] = []
-                    query_dict[self.query_categories[category_loop]].append(self.stemmer.stemWord(token))
+                    query_dict[self.query_categories[category_loop]].append(stem_word)
                     # print(self.stemmer.stemWord(token))
         # print(query_dict)
-
+        
         # Get postings list
         postings_list_dict = self.get_postings_list(query_dict)
+        
+        
         # Get query results 
         query_result = self.merge_postings_list_dict(postings_list_dict, k)
 
-        # print(query_result)
+        if len(query_result) < k:
+
+            backup_list_dict = self.get_postings_list(query_backup_dict)
+        
+            for category in postings_list_dict:
+                for token in postings_list_dict[category]:
+                    if token not in backup_list_dict:
+                        if backup_list_dict.get(category) is None:
+                            backup_list_dict[category] = {}
+                        if backup_list_dict[category].get(token) is None:
+                            backup_list_dict[category][token] = []
+                        
+                        backup_list_dict[category][token] = postings_list_dict[category][token]
+                
+            query_result = self.merge_postings_list_dict(backup_list_dict, k)
         
         end_time = time.perf_counter()
         
@@ -296,7 +327,7 @@ class Engine:
         return query_result, top_k_titles, elapsed_time
       
 
-    def write_search_result_file(self, all_results, all_titles, all_time, filename = "result.txt"):
+    def write_search_result_file(self, all_results, all_titles, all_time, filename = "queries_op.txt"):
         '''
         Write to file
         '''
@@ -308,10 +339,13 @@ class Engine:
                 string = "%d, %s\n" % (all_results[i][j][0], all_titles[i][j].lower())     
                 fp.write(string)
             # Write time
+            if N == 0:
+                all_time[i] = 0
+                N = 1
             string_time = "%f, %f \n \n" % (all_time[i], all_time[i] / N)
             fp.write(string_time)
 
-    def search_from_file(self, filename, op_file = "result.txt"):
+    def search_from_file(self, filename, op_file = "queries_op.txt"):
         '''
         Search from file 
         '''
@@ -349,14 +383,14 @@ if __name__ == "__main__":
 
     index_path = sys.argv[1]
     query_file = sys.argv[2]
-    query_output = sys.argv[3]
+    # query_output = sys.argv[3]
     # Search engine class
     search_engine = Engine(index_path)
     # Run the search engine
     # search_engine.run()
     if os.path.exists(query_file):
         # Search from file
-        result = search_engine.search_from_file(query_file, query_output)
+        result = search_engine.search_from_file(query_file)
     else:
         # Search from query 
         result = search_engine.search(query_file)

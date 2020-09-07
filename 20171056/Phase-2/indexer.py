@@ -230,11 +230,8 @@ class MergeIndex:
             repeated_token_list = []
 
             if len(tokens_heap):
-                clear_cache_freq = 100
-                counter = 0
                 while token_pair[0] == tokens_heap[0][0]:
                     # print("repeat")
-                    counter += 1
                     token_pair_2 = self.pop_token(tokens_heap, file_pointers)
                     posting_dict_2 = self.get_all_postings_list(token_pair_2, files_dictionary)
                     repeated_token_list.append(posting_dict_2)
@@ -511,7 +508,7 @@ class Indexer:
                 
                         page_dict = {}
                         page_title = ""
-                        page_id = -1
+                     
                         page_body = ""                    
                             
                 elif event == "end":
