@@ -39,15 +39,17 @@ class MergeIndex:
         '''
         files_dictionary = {}
         for field in self.categories:
-            files_dictionary[field] = []
+            files_dictionary[field] = {"fp":[], "line":[], "name":[]}
             for i in range(self.index_count):
                 file_name = "index_%s_%d.txt" % (str(field), i)
-                files_dictionary[field].append(os.path.join( self.index_directory,file_name))
-        
+                files_dictionary[field]["name"].append(os.path.join( self.index_directory,file_name))
+                files_dictionary[field]["fp"].append(open(os.path.join( self.index_directory,file_name), "r"))
+                files_dictionary[field]["line"].append(1)
+
         files_dictionary["tokens"] = []
         for i in range(self.index_count):
                 file_name = "tokens_%d.txt" % (i)
-                files_dictionary["tokens"].append(os.path.join( self.index_directory,file_name))
+                files_dictionary["tokens"].append(os.path.join(self.index_directory,file_name))
 
         return files_dictionary
 
@@ -109,10 +111,9 @@ class MergeIndex:
         else:
             # Once index is complete for file delete older indexes
             for field in self.categories:
-                path = self.files_dictionary[field][token_pair[1][-1]]
-                os.remove(path)
+                path = self.files_dictionary[field]["name"][token_pair[1][-1]]
                 print("Deleting index file ", path)
-            
+                os.remove(path)
             fp.close()
             os.remove(self.files_dictionary["tokens"][token_pair[1][-1]])
             print("Deleting index file ", self.files_dictionary["tokens"][token_pair[1][-1]])
@@ -145,9 +146,15 @@ class MergeIndex:
         for field in self.categories:
             if files_dictionary.get(field) is not None:
                 if token_pair[1][self.categories.index(field)] != 0:
-                    file_name = files_dictionary[field][token_pair[1][-1]]
-                    line = linecache.getline(file_name, int(token_pair[1][self.categories.index(field)]))
+                    fp = files_dictionary[field]["fp"][token_pair[1][-1]]
+                    line_no = files_dictionary[field]["line"][token_pair[1][-1]]
+                    assert line_no == int(token_pair[1][self.categories.index(field)]), "Oh no."
+                    line = fp.readline()
+                    line_no +=1
+                    files_dictionary[field]["line"][token_pair[1][-1]] = line_no
+                    # line = linecache.getline(file_name, int(token_pair[1][self.categories.index(field)]))
                     token_dictionary[field] = self.decode_line(line)
+                    # linecache.clearcache()
                 else:
                     token_dictionary[field] = {"postings_list": []}
 
@@ -223,16 +230,25 @@ class MergeIndex:
             repeated_token_list = []
 
             if len(tokens_heap):
+                clear_cache_freq = 100
+                counter = 0
                 while token_pair[0] == tokens_heap[0][0]:
+                    # print("repeat")
+                    counter += 1
                     token_pair_2 = self.pop_token(tokens_heap, file_pointers)
                     posting_dict_2 = self.get_all_postings_list(token_pair_2, files_dictionary)
                     repeated_token_list.append(posting_dict_2)
+                    # print("passed")
+                    # if counter % clear_cache_freq == 0:
+                    #     # print("clear")
+                    #     linecache.clearcache()
                     # posting_dict = merge_postings_list(posting_dict, posting_dict_2)
                 if len(repeated_token_list):
                     merged_dict = self.merge_postings_list(posting_dict, repeated_token_list)
                     posting_dict = merged_dict
             
             self.write_posting_dict(token_pair[0], posting_dict, file_output_pointers)
+            # print("wrote")
             repeated_token_list.clear()
 
 class Indexer:
@@ -554,7 +570,7 @@ if __name__ == "__main__":
     indexer = Indexer(wikipedia_dump_path, index_directory=index_path, stop_words_file=stopword_path)
     indexer.run()
     
-    # merger = MergeIndex(page_count=2000000, index_path=index_path, index_count=6)
+    # merger = MergeIndex(page_count=9820000, index_path=index_path, index_count=492)
     # merger.merge_files()
     # with open(stats_path, "w") as fp:
     #     fp.write(str(total_words) + "\n" + str(num_tokens))
