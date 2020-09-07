@@ -23,13 +23,15 @@ class Engine:
     def __init__(self, index_path):
         super().__init__()
 
+        assert os.path.exists(index_path), "Index path does not exist"
         self.index_path = index_path
         self.categories = sorted(["references", "body", "infobox", "title", "category", "links"])
         self.query_categories = {"c:": "category", "b:": "body", "t:": "title", "i:": "infobox", "r:": "references", "e:": "links"}
         self.tokens_dict = self.get_tokens()
         self.stemmer = Stemmer.Stemmer("english")
         self.titles_file = os.path.join(index_path, "titles.txt")
-
+        self.file_pointers = self.get_index_pointers()
+    
     def get_tokens(self):
         '''
         Reads the tokens file with line numbers
@@ -44,6 +46,20 @@ class Engine:
                     tokens_dict[words[0]].append(words[i])
 
         return tokens_dict
+    
+    def get_index_pointers(self):
+        '''
+        Get file pointers for index files
+        '''
+        file_dict = {}
+        for field in self.categories:
+            for block in range(config.max_division):
+                filename = "index_block_%d_%s.txt" % (block, str(field))
+                file_dict[filename] = open(os.path.join(index_path, filename), "r")
+        
+        # print(file_)
+        return file_dict
+
 
     def decode_line(self, line):
         '''
@@ -76,20 +92,22 @@ class Engine:
                 
                 block = config.alphabet_file_mapping[token[0]]
                 filename = "index_block_%d_%s.txt" % (block, str(category))
-                filename = os.path.join(self.index_path, filename)
-                # print(token)
+                fp = self.file_pointers[filename]
                 found = False
                 # If token in dictionary
                 if (self.tokens_dict.get(token) is not None):
                     # If token is present in the respective category
-                    if self.tokens_dict[token][self.categories.index(category)] != "0": 
+                    if self.tokens_dict[token][self.categories.index(category)] != "n": 
                         # Get line :)
-                        postings_list_dict = self.decode_line(linecache.getline(filename, int(self.tokens_dict[token][self.categories.index(category)])))
+                        seek_value = int(self.tokens_dict[token][self.categories.index(category)])
+                        fp.seek(seek_value)
+                        line = fp.readline()
+                        postings_list_dict = self.decode_line(line)
                         found = True
                         if postings_list.get(category) is None:
                             postings_list[category] = {}
                         postings_list[category][token] = postings_list_dict
-                        # print(line, category)
+
                 if not found:
                     if postings_list.get(category) is None:
                             postings_list[category] = {}
@@ -197,7 +215,6 @@ class Engine:
     
         else:
             # Field queries !!!!
-
             words = query.split()
             category_loop = "b:"
             first_token = True

@@ -179,12 +179,13 @@ class MergeIndex:
                     write_string += "%d %.2f " % (tuple_iter[0], (math.log((1 + tuple_iter[1]), 10) * math.log(self.page_count / df, 10)))
                 
                 write_string += "\n"
-                line = file_output_pointers[field][block][1]
-                file_output_pointers[field][block][0].write(write_string)
-                file_output_pointers[field][block][1] = line + 1
-                token_write_string += " %d" % line
+                seek = file_output_pointers[field][block][1]
+                increment = file_output_pointers[field][block][0].write(write_string)
+                seek_value = seek + increment
+                file_output_pointers[field][block][1] = seek_value
+                token_write_string += " %d" % (seek)
             else:
-                token_write_string += " 0"
+                token_write_string += " n"
         token_write_string += "\n"
         # print(token_write_string)
         file_output_pointers["tokens"][0].write(token_write_string)
