@@ -307,6 +307,9 @@ class Indexer:
                             else:
                                 tokens_dict[key][word] = 1
                     else:
+                        if self.stem_dictionary.get(word) is None:
+                            self.stem_dictionary[word] = self.stemmer.stemWord(word)    
+                        word = self.stem_dictionary[word]                    
                         if tokens_dict[key].get(word) is not None:
                             tokens_dict[key][word] += 1
                         else:
@@ -563,7 +566,7 @@ if __name__ == "__main__":
     indexer = Indexer(wikipedia_dump_path, index_directory=index_path, stop_words_file=stopword_path)
     indexer.run()
     
-    # merger = MergeIndex(page_count=9820000, index_path=index_path, index_count=492)
+    # merger = MergeIndex(page_count=9829059, index_path=index_path, index_count=492)
     # merger.merge_files()
     # with open(stats_path, "w") as fp:
     #     fp.write(str(total_words) + "\n" + str(num_tokens))

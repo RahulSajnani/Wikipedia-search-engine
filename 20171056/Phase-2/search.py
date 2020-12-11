@@ -32,7 +32,7 @@ class Engine:
         self.stemmer = Stemmer.Stemmer("english")
         self.titles_file = os.path.join(index_path, "titles.txt")
         self.file_pointers = self.get_index_pointers()
-        self.relevance_weights = {"references": 0.1, "body": 0.5, "infobox": 1.5, "title": 3, "category": 1, "links": 0.1}
+        self.relevance_weights = {"references": 0.6, "body": 0.8, "infobox": 1.0, "title": 12, "category": 1.5, "links": 0.05}
     
     def get_tokens(self):
         '''
@@ -198,9 +198,9 @@ class Engine:
                 search_doc_id = self.merge_postings_list(search_doc_id, posting_list_dict[posting_tuple_1[1]][posting_tuple_1[2]]["postings_list"])
 
         # print("check:", search_doc_id)
-
+        query_result = []
         if len(search_doc_id) < max_k:
-          
+            search_doc_id_old = search_doc_id.copy()
             #if no intersection found join all
             merge_iter = heapq.merge(*all_postings_list)
             prev = (-1, -1)
@@ -225,9 +225,22 @@ class Engine:
             
             if prev[0] > -1 and dict_doc.get(prev[0]) is None:
                 search_doc_id.append(prev)
-          
-        query_result = self.find_top_k(search_doc_id, max_k)
+        
+            query_result_old = self.find_top_k(search_doc_id_old, max_k)  
+            query_result = self.find_top_k(search_doc_id, max_k)
 
+            doc = []
+            for tuple in query_result_old:
+                doc.append(tuple[0])
+
+            for tuple in query_result:
+                if tuple[0] not in doc:
+                    query_result_old.append(tuple)
+            query_result = query_result_old
+
+        if len(query_result) == 0:
+            query_result = self.find_top_k(search_doc_id, max_k)
+            
         return query_result
 
     def search(self, query):
@@ -249,6 +262,7 @@ class Engine:
         else:
             query = query_separate[0]
 
+        query = re.sub(r'[^A-Za-z0-9:]+', r' ', query)
         query_split = query.split(":")
         # default_dict = 
         if len(query_split) == 1:
@@ -301,7 +315,9 @@ class Engine:
         query_result = self.merge_postings_list_dict(postings_list_dict, k)
 
         if len(query_result) < k:
-
+            
+            query_result_old = query_result.copy()
+            # print(query_result_old)
             backup_list_dict = self.get_postings_list(query_backup_dict)
         
             for category in postings_list_dict:
@@ -315,7 +331,21 @@ class Engine:
                         backup_list_dict[category][token] = postings_list_dict[category][token]
                 
             query_result = self.merge_postings_list_dict(backup_list_dict, k)
-        
+            docs = []
+            for result in query_result_old:
+                docs.append(result[0])
+            # print(docs)
+            total_results = len(query_result_old)
+            for tuple in query_result:
+                if tuple[0] not in docs:
+                    total_results+=1
+                    query_result_old.append(tuple)
+
+                if total_results >= k:
+                    break    
+            query_result = query_result_old
+
+
         end_time = time.perf_counter()
         
         elapsed_time = end_time - start_time
